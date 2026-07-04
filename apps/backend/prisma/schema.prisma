@@ -1,0 +1,504 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model tenants {
+  id                  String    @id
+  name                String
+  plan                String    @default("free") // free, starter, professional, enterprise
+  is_active           Boolean   @default(true)
+  billing_cycle       String? // monthly, annual
+  subscription_status String? // active, trialing, past_due, canceled
+  trial_ends_at       DateTime? @db.Timestamptz(6)
+  features            Json? // Feature flags JSON, e.g. { "voice_ai": true }
+  created_at          DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+model audit_logs {
+  id         String    @id
+  tenant_id  String
+  operator   String
+  action     String
+  old_value  String?
+  new_value  String?
+  details    String?
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  created_by String?
+  updated_by String?
+
+  @@index([tenant_id])
+}
+
+model customer_ledger {
+  id               String     @id
+  tenant_id        String
+  customer_id      String?
+  transaction_type String
+  amount           Float
+  balance          Float
+  transaction_date String
+  notes            String?
+  created_at       DateTime?  @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime?  @default(now()) @db.Timestamptz(6)
+  created_by       String?
+  updated_by       String?
+  customers        customers? @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id])
+}
+
+model customers {
+  id               String             @id
+  tenant_id        String
+  name             String
+  mobile           String
+  address          String?
+  notes            String?
+  created_at       DateTime?          @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime?          @default(now()) @db.Timestamptz(6)
+  created_by       String?
+  updated_by       String?
+  customer_ledger  customer_ledger[]
+  orders           orders[]
+  pending_payments pending_payments[]
+  reservations     reservations[]
+  loyaltyProfiles  loyalty_profiles?
+
+  @@index([tenant_id])
+}
+
+model expense_categories {
+  id         String     @id
+  tenant_id  String
+  name       String
+  created_at DateTime?  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime?  @default(now()) @db.Timestamptz(6)
+  created_by String?
+  updated_by String?
+  expenses   expenses[]
+
+  @@index([tenant_id])
+}
+
+model expenses {
+  id                 String              @id
+  tenant_id          String
+  date               String
+  category_id        String?
+  description        String?
+  amount             Float
+  payment_method     String
+  created_at         DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?           @default(now()) @db.Timestamptz(6)
+  created_by         String?
+  updated_by         String?
+  expense_categories expense_categories? @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id])
+}
+
+model kitchen_tickets {
+  id         String    @id
+  tenant_id  String
+  order_id   String?
+  table_id   String?
+  status     String
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  created_by String?
+  updated_by String?
+  orders     orders?   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tables     tables?   @relation(fields: [table_id], references: [id], onUpdate: NoAction)
+
+  @@index([tenant_id])
+}
+
+model menu_categories {
+  id         String       @id
+  tenant_id  String
+  name       String
+  slug       String
+  created_at DateTime?    @default(now()) @db.Timestamptz(6)
+  updated_at DateTime?    @default(now()) @db.Timestamptz(6)
+  created_by String?
+  updated_by String?
+  menu_items menu_items[]
+
+  @@index([tenant_id])
+}
+
+model menu_items {
+  id              String           @id
+  tenant_id       String
+  name            String
+  category_id     String?
+  description     String?
+  price           Float
+  image_url       String?
+  is_available    Boolean?         @default(true)
+  created_at      DateTime?        @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime?        @default(now()) @db.Timestamptz(6)
+  created_by      String?
+  updated_by      String?
+  menu_categories menu_categories? @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  order_items     order_items[]
+
+  @@index([tenant_id])
+}
+
+model order_items {
+  id           String      @id
+  tenant_id    String
+  order_id     String?
+  menu_item_id String?
+  quantity     Int
+  price        Float
+  subtotal     Float
+  created_at   DateTime?   @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime?   @default(now()) @db.Timestamptz(6)
+  created_by   String?
+  updated_by   String?
+  menu_items   menu_items? @relation(fields: [menu_item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  orders       orders?     @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id])
+}
+
+model orders {
+  id               String             @id
+  tenant_id        String
+  order_number     String
+  table_id         String?
+  customer_id      String?
+  subtotal         Float
+  tax              Float
+  discount         Float
+  grand_total      Float
+  status           String
+  payment_status   String
+  created_at       DateTime?          @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime?          @default(now()) @db.Timestamptz(6)
+  created_by       String?
+  updated_by       String?
+  kitchen_tickets  kitchen_tickets[]
+  order_items      order_items[]
+  customers        customers?         @relation(fields: [customer_id], references: [id], onUpdate: NoAction)
+  tables           tables?            @relation(fields: [table_id], references: [id], onUpdate: NoAction)
+  payments         payments[]
+  pending_payments pending_payments[]
+  deliveryOrders   delivery_orders?
+
+  @@index([tenant_id])
+}
+
+model payments {
+  id             String    @id
+  tenant_id      String
+  order_id       String?
+  payment_type   String
+  amount_paid    Float
+  payment_method String
+  details        String?
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime? @default(now()) @db.Timestamptz(6)
+  created_by     String?
+  updated_by     String?
+  orders         orders?   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id])
+}
+
+model pending_payments {
+  id          String     @id
+  tenant_id   String
+  order_id    String?
+  customer_id String?
+  amount_due  Float
+  due_date    String
+  status      String
+  notes       String?
+  created_at  DateTime?  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime?  @default(now()) @db.Timestamptz(6)
+  created_by  String?
+  updated_by  String?
+  customers   customers? @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  orders      orders?    @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id])
+}
+
+model settings {
+  tenant_id  String
+  key        String
+  value      String
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  created_by String?
+  updated_by String?
+
+  @@id([tenant_id, key])
+}
+
+model staff_transactions {
+  id             String    @id
+  tenant_id      String
+  user_id        String?
+  type           String
+  amount         Float
+  date           String
+  payment_method String
+  notes          String?
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime? @default(now()) @db.Timestamptz(6)
+  created_by     String?
+  updated_by     String?
+  users          users?    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id])
+}
+
+model tables {
+  id              String            @id
+  tenant_id       String
+  table_number    String
+  capacity        Int
+  status          String
+  created_at      DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime?         @default(now()) @db.Timestamptz(6)
+  created_by      String?
+  updated_by      String?
+  kitchen_tickets kitchen_tickets[]
+  orders          orders[]
+  reservations    reservations[]
+
+  @@index([tenant_id])
+}
+
+model users {
+  id                 String               @id
+  tenant_id          String
+  name               String
+  passcode           String?
+  role               String
+  created_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  created_by         String?
+  updated_by         String?
+  staff_transactions staff_transactions[]
+
+  @@index([tenant_id])
+}
+
+model table_groups {
+  id         String    @id
+  tenant_id  String
+  name       String
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+  created_by String?
+  updated_by String?
+
+  @@index([tenant_id])
+}
+
+model time_slots {
+  id           String         @id
+  tenant_id    String
+  start_time   String
+  end_time     String
+  max_covers   Int
+  created_at   DateTime?      @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime?      @default(now()) @db.Timestamptz(6)
+  reservations reservations[]
+
+  @@index([tenant_id])
+}
+
+model blocked_dates {
+  id         String    @id
+  tenant_id  String
+  date       String
+  reason     String?
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([tenant_id])
+}
+
+model reservation_rules {
+  id         String    @id
+  tenant_id  String
+  rule_key   String
+  rule_value String
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([tenant_id])
+}
+
+model holidays {
+  id         String    @id
+  tenant_id  String
+  date       String
+  name       String
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([tenant_id])
+}
+
+model reservations {
+  id               String      @id
+  tenant_id        String
+  customer_id      String?
+  customer_name    String
+  customer_phone   String
+  table_id         String?
+  party_size       Int
+  reservation_date String
+  time_slot_id     String?
+  status           String      @default("confirmed") // confirmed, waitlisted, seated, cancelled
+  notes            String?
+  created_at       DateTime?   @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime?   @default(now()) @db.Timestamptz(6)
+  created_by       String?
+  updated_by       String?
+  customers        customers?  @relation(fields: [customer_id], references: [id], onUpdate: NoAction)
+  tables           tables?     @relation(fields: [table_id], references: [id], onUpdate: NoAction)
+  time_slots       time_slots? @relation(fields: [time_slot_id], references: [id], onUpdate: NoAction)
+
+  @@index([tenant_id])
+}
+
+model voice_ai_settings {
+  tenant_id        String    @id
+  greeting_message String    @default("Welcome to our restaurant! How can I help you today?")
+  voice_model      String    @default("en-US-Standard-C")
+  booking_enabled  Boolean   @default(true)
+  updated_at       DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+model voice_ai_calls {
+  id               String    @id
+  tenant_id        String
+  caller_number    String
+  status           String    @default("ringing") // ringing, active, completed, failed
+  transcription    String?
+  duration_seconds Int       @default(0)
+  recording_url    String?
+  created_at       DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([tenant_id])
+}
+
+model whatsapp_templates {
+  id         String    @id
+  tenant_id  String
+  name       String
+  category   String    @default("utility") // utility, marketing
+  language   String    @default("en")
+  body_text  String
+  status     String    @default("approved") // approved, pending, rejected
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([tenant_id])
+}
+
+model whatsapp_logs {
+  id               String    @id
+  tenant_id        String
+  recipient_number String
+  direction        String // inbound, outbound
+  message_text     String
+  status           String    @default("sent") // sent, delivered, read, failed
+  created_at       DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([tenant_id])
+}
+
+model loyalty_rules {
+  id                   String    @id
+  tenant_id            String
+  earn_ratio           Float     @default(0.1) // points per unit of currency spent
+  redeem_value         Float     @default(1.0) // monetary value of 1 point
+  min_points_to_redeem Int       @default(50)
+  created_at           DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([tenant_id])
+}
+
+model loyalty_profiles {
+  id                   String                 @id
+  tenant_id            String
+  customer_id          String                 @unique
+  points_balance       Int                    @default(0)
+  tier                 String                 @default("Bronze") // Bronze, Silver, Gold, Platinum
+  created_at           DateTime?              @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime?              @default(now()) @db.Timestamptz(6)
+  customers            customers              @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  loyalty_transactions loyalty_transactions[]
+
+  @@index([tenant_id])
+}
+
+model loyalty_transactions {
+  id                 String           @id
+  tenant_id          String
+  loyalty_profile_id String
+  type               String // earn, redeem, adjustment
+  points             Int
+  amount             Float?
+  notes              String?
+  created_at         DateTime?        @default(now()) @db.Timestamptz(6)
+  loyalty_profiles   loyalty_profiles @relation(fields: [loyalty_profile_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id])
+}
+
+model delivery_agents {
+  id              String            @id
+  tenant_id       String
+  name            String
+  phone           String
+  vehicle_number  String?
+  status          String            @default("available") // available, busy, offline
+  created_at      DateTime?         @default(now()) @db.Timestamptz(6)
+  delivery_orders delivery_orders[]
+
+  @@index([tenant_id])
+}
+
+model delivery_orders {
+  id                      String           @id
+  tenant_id               String
+  order_id                String           @unique
+  agent_id                String?
+  status                  String           @default("pending") // pending, assigned, picked_up, delivered, cancelled
+  customer_address        String
+  estimated_delivery_time String?
+  delivered_at            DateTime?        @db.Timestamptz(6)
+  orders                  orders           @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  delivery_agents         delivery_agents? @relation(fields: [agent_id], references: [id], onUpdate: NoAction)
+
+  @@index([tenant_id])
+}
+
+model marketing_campaigns {
+  id           String    @id
+  tenant_id    String
+  name         String
+  channel      String // email, sms, whatsapp
+  subject      String?
+  content      String
+  scheduled_at DateTime? @db.Timestamptz(6)
+  status       String    @default("pending") // pending, sent, failed
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([tenant_id])
+}
