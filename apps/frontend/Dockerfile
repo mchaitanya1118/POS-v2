@@ -16,8 +16,10 @@ COPY apps/frontend ./apps/frontend
 # Build-time environment variables required for Next.js static embedding
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG BACKEND_URL
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV BACKEND_URL=$BACKEND_URL
 
 # Build the Next.js application
 RUN npm run build -w frontend
