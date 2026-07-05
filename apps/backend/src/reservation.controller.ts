@@ -3,12 +3,16 @@ import { PrismaService } from './prisma.service';
 import { TenantId } from './common/tenant.decorator';
 import { AuthGuard } from './auth.guard';
 import { FeatureFlagGuard, RequireFeature } from './common/features.guard';
+import { NotificationService } from './notification.service';
 
 @Controller('api/v1')
 @UseGuards(AuthGuard, FeatureFlagGuard)
 @RequireFeature('reservations')
 export class ReservationController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationService: NotificationService,
+  ) {}
 
   // ==========================================
   // RESERVATIONS
@@ -61,7 +65,7 @@ export class ReservationController {
       });
     }
 
-    return this.prisma.reservations.upsert({
+    const result = await this.prisma.reservations.upsert({
       where: { id: body.id },
       update: {
         customer_id: body.customerId,
@@ -89,6 +93,20 @@ export class ReservationController {
         notes: body.notes,
       },
     });
+
+    this.notificationService.emit({
+      type: 'booking',
+      tenantId,
+      message: `New Booking: ${result.customer_name} for ${result.party_size} guests on ${result.reservation_date}`,
+      data: {
+        id: result.id,
+        customerName: result.customer_name,
+        partySize: result.party_size,
+        reservationDate: result.reservation_date,
+      },
+    });
+
+    return result;
   }
 
   @Put('reservations/:id')

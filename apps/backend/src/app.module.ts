@@ -13,6 +13,8 @@ import { LoyaltyController } from './loyalty.controller';
 import { DeliveryController } from './delivery.controller';
 import { AnalyticsController } from './analytics.controller';
 import { HealthController } from './health.controller';
+import { NotificationController } from './notification.controller';
+import { NotificationService } from './notification.service';
 
 @Module({
   imports: [
@@ -34,7 +36,8 @@ import { HealthController } from './health.controller';
     DeliveryController,
     AnalyticsController,
     HealthController,
+    NotificationController,
   ],
-  providers: [AppService, PrismaService],
+  providers: [AppService, PrismaService, NotificationService],
 })
 export class AppModule {}

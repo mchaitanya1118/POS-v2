@@ -2,11 +2,15 @@ import { Controller, Get, Post, Delete, Body, Param, UseGuards, UnauthorizedExce
 import { PrismaService } from './prisma.service';
 import { TenantId } from './common/tenant.decorator';
 import { AuthGuard } from './auth.guard';
+import { NotificationService } from './notification.service';
 
 @Controller('api/v1')
 @UseGuards(AuthGuard)
 export class PosController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationService: NotificationService,
+  ) {}
 
   // ==========================================
   // SETTINGS
@@ -263,7 +267,7 @@ export class PosController {
     const { order, items } = body;
 
     // Use a transaction to save the order and its items atomically
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       // 1. Upsert the order
       await tx.orders.upsert({
         where: { id: order.id },
@@ -316,6 +320,21 @@ export class PosController {
         });
       }
     });
+
+    // Emit real-time notification
+    this.notificationService.emit({
+      type: 'order',
+      tenantId,
+      message: `New Order #${order.orderNumber} received: $${order.grandTotal}`,
+      data: {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        grandTotal: order.grandTotal,
+        status: order.status,
+      },
+    });
+
+    return result;
   }
 
   // ==========================================
