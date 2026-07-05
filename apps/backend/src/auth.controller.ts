@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UnauthorizedException, Get } from '@nestjs/common';
+import { Controller, Post, Body, UnauthorizedException, Get, HttpException, HttpStatus } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from './prisma.service';
 
@@ -164,114 +164,122 @@ export class AuthController {
     @Body('plan') plan: string,
     @Body('paymentDetails') paymentDetails: any,
   ) {
-    const newTenantId = `tenant-${Date.now()}`;
+    try {
+      const newTenantId = `tenant-${Date.now()}`;
 
-    // 1. Determine features based on plan selection
-    let features: Record<string, boolean> = {
-      voice_ai: false,
-      reservations: false,
-      inventory: false,
-      loyalty: false,
-      analytics: false,
-      delivery: false,
-      whatsapp: false,
-    };
+      // 1. Determine features based on plan selection
+      let features: Record<string, boolean> = {
+        voice_ai: false,
+        reservations: false,
+        inventory: false,
+        loyalty: false,
+        analytics: false,
+        delivery: false,
+        whatsapp: false,
+      };
 
-    if (plan === 'starter') {
-      features.reservations = true;
-    } else if (plan === 'professional') {
-      features.reservations = true;
-      features.inventory = true;
-      features.loyalty = true;
-      features.analytics = true;
-      features.delivery = true;
-    } else if (plan === 'enterprise') {
-      features.voice_ai = true;
-      features.reservations = true;
-      features.inventory = true;
-      features.loyalty = true;
-      features.analytics = true;
-      features.delivery = true;
-      features.whatsapp = true;
-    }
-
-    // 2. Validate Payment Details (Simulated Payment Gateway)
-    if (plan !== 'free') {
-      if (!paymentDetails || !paymentDetails.cardNumber || paymentDetails.cardNumber.length < 16) {
-        throw new UnauthorizedException('Payment Gateway Error: Invalid card information.');
+      if (plan === 'starter') {
+        features.reservations = true;
+      } else if (plan === 'professional') {
+        features.reservations = true;
+        features.inventory = true;
+        features.loyalty = true;
+        features.analytics = true;
+        features.delivery = true;
+      } else if (plan === 'enterprise') {
+        features.voice_ai = true;
+        features.reservations = true;
+        features.inventory = true;
+        features.loyalty = true;
+        features.analytics = true;
+        features.delivery = true;
+        features.whatsapp = true;
       }
-      console.log(`Payment processed successfully via Gateway for Tenant ${newTenantId}: Amount matches plan ${plan}`);
-    }
 
-    // 3. Create Tenant in DB
-    await this.prisma.tenants.create({
-      data: {
-        id: newTenantId,
-        name: restaurantName,
-        plan: plan || 'free',
-        features,
-      },
-    });
-
-    // 4. Initialize Settings keys
-    await this.prisma.settings.createMany({
-      data: [
-        { tenant_id: newTenantId, key: 'passcode', value: passcode },
-        { tenant_id: newTenantId, key: 'restaurantName', value: restaurantName },
-        { tenant_id: newTenantId, key: 'phone', value: phone },
-        { tenant_id: newTenantId, key: 'taxPercentage', value: '12.5' },
-        { tenant_id: newTenantId, key: 'currency', value: 'USD' },
-      ],
-    });
-
-    // 4b. Initialize Default time slots
-    await this.prisma.time_slots.createMany({
-      data: [
-        {
-          id: `slot-lunch-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
-          tenant_id: newTenantId,
-          start_time: '12:00',
-          end_time: '15:00',
-          max_covers: 30
-        },
-        {
-          id: `slot-dinner-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
-          tenant_id: newTenantId,
-          start_time: '19:00',
-          end_time: '22:30',
-          max_covers: 50
+      // 2. Validate Payment Details (Simulated Payment Gateway)
+      if (plan !== 'free') {
+        if (!paymentDetails || !paymentDetails.cardNumber || paymentDetails.cardNumber.length < 16) {
+          throw new UnauthorizedException('Payment Gateway Error: Invalid card information.');
         }
-      ]
-    });
+        console.log(`Payment processed successfully via Gateway for Tenant ${newTenantId}: Amount matches plan ${plan}`);
+      }
 
-    // 5. Create Owner/Admin User
-    const finalUserId = username ? username.trim() : `u-${Date.now()}`;
-    const adminUser = await this.prisma.users.create({
-      data: {
-        id: finalUserId,
-        tenant_id: newTenantId,
-        name: ownerName,
-        role: 'admin',
-        passcode,
-      },
-    });
+      // 3. Create Tenant in DB
+      await this.prisma.tenants.create({
+        data: {
+          id: newTenantId,
+          name: restaurantName,
+          plan: plan || 'free',
+          features,
+        },
+      });
 
-    // 6. Sign JWT token
-    const payload = { id: adminUser.id, name: adminUser.name, role: adminUser.role, tenantId: newTenantId };
-    const token = await this.jwtService.signAsync(payload, {
-      secret: process.env.JWT_SECRET || 'neqtra-pos-enterprise-super-secret-key-2026',
-      expiresIn: '7d',
-    });
+      // 4. Initialize Settings keys
+      await this.prisma.settings.createMany({
+        data: [
+          { tenant_id: newTenantId, key: 'passcode', value: passcode },
+          { tenant_id: newTenantId, key: 'restaurantName', value: restaurantName },
+          { tenant_id: newTenantId, key: 'phone', value: phone },
+          { tenant_id: newTenantId, key: 'taxPercentage', value: '12.5' },
+          { tenant_id: newTenantId, key: 'currency', value: 'USD' },
+        ],
+      });
 
-    return {
-      success: true,
-      token,
-      user: {
-        id: adminUser.id,
-        name: adminUser.name,
-        role: adminUser.role,
-      },
-      tenantId: newTenantId,
-    };
+      // 4b. Initialize Default time slots
+      await this.prisma.time_slots.createMany({
+        data: [
+          {
+            id: `slot-lunch-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+            tenant_id: newTenantId,
+            start_time: '12:00',
+            end_time: '15:00',
+            max_covers: 30
+          },
+          {
+            id: `slot-dinner-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+            tenant_id: newTenantId,
+            start_time: '19:00',
+            end_time: '22:30',
+            max_covers: 50
+          }
+        ]
+      });
+
+      // 5. Create Owner/Admin User
+      const finalUserId = username ? username.trim() : `u-${Date.now()}`;
+      const adminUser = await this.prisma.users.create({
+        data: {
+          id: finalUserId,
+          tenant_id: newTenantId,
+          name: ownerName,
+          role: 'admin',
+          passcode,
+        },
+      });
+
+      // 6. Sign JWT token
+      const payload = { id: adminUser.id, name: adminUser.name, role: adminUser.role, tenantId: newTenantId };
+      const token = await this.jwtService.signAsync(payload, {
+        secret: process.env.JWT_SECRET || 'neqtra-pos-enterprise-super-secret-key-2026',
+        expiresIn: '7d',
+      });
+
+      return {
+        success: true,
+        token,
+        user: {
+          id: adminUser.id,
+          name: adminUser.name,
+          role: adminUser.role,
+        },
+        tenantId: newTenantId,
+      };
+    } catch (error: any) {
+      console.error('Registration failed with error:', error);
+      throw new HttpException(
+        `Registration failed: ${error.message || error}`,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
   }
 }

@@ -100,7 +100,16 @@ export default function RegisterPage() {
         setErrorMsg('Registration failed. Please verify your info.');
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Onboarding process encountered an error.');
+      let msg = err.message || 'Onboarding process encountered an error.';
+      try {
+        const parsed = JSON.parse(msg);
+        if (parsed.message) {
+          msg = parsed.message;
+        }
+      } catch (e) {
+        // Not a JSON string, use raw message
+      }
+      setErrorMsg(msg);
     } finally {
       setLoading(false);
     }
