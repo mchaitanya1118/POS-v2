@@ -38,9 +38,9 @@ RUN npm ci --omit=dev
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
 COPY --from=builder /app/apps/backend/prisma ./apps/backend/prisma
 
-# Copy generated Prisma client from builder (usually under node_modules/@prisma and node_modules/.prisma)
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
+# Copy generated Prisma client from builder
+COPY --from=builder /app/apps/backend/node_modules/.prisma ./apps/backend/node_modules/.prisma
+COPY --from=builder /app/apps/backend/node_modules/@prisma/client ./apps/backend/node_modules/@prisma/client
 
 EXPOSE 3001
 
