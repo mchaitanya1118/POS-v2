@@ -15,6 +15,7 @@ import { AnalyticsController } from './analytics.controller';
 import { HealthController } from './health.controller';
 import { NotificationController } from './notification.controller';
 import { NotificationService } from './notification.service';
+import { PublicOrderController } from './public-order.controller';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { NotificationService } from './notification.service';
     AnalyticsController,
     HealthController,
     NotificationController,
+    PublicOrderController,
   ],
   providers: [AppService, PrismaService, NotificationService],
 })

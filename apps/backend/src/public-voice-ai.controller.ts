@@ -79,15 +79,16 @@ export class PublicVoiceAiController {
 
     // Route to appropriate handler
     let resultObj: any;
+    const callerNumber = payload?.customer?.number || '0000000000';
     switch (name) {
       case 'getMenu':
         resultObj = await this.handleGetMenu(tenantId);
         break;
       case 'createReservation':
-        resultObj = await this.handleCreateReservation(tenantId, parameters);
+        resultObj = await this.handleCreateReservation(tenantId, parameters, callerNumber);
         break;
       case 'createOrder':
-        resultObj = await this.handleCreateOrder(tenantId, parameters);
+        resultObj = await this.handleCreateOrder(tenantId, parameters, callerNumber);
         break;
       default:
         resultObj = {
@@ -161,9 +162,9 @@ export class PublicVoiceAiController {
   }
 
   // Helper: Create Reservation
-  private async handleCreateReservation(tenantId: string, params: any) {
+  private async handleCreateReservation(tenantId: string, params: any, callerNumber: string) {
     const customerName = params.customerName || params.guestName || 'Guest';
-    const customerPhone = params.customerPhone || params.phone || '0000000000';
+    const customerPhone = params.customerPhone || params.phone || callerNumber;
     const partySize = parseInt(params.partySize || params.guests) || 2;
     const reservationDate = params.reservationDate || params.date || new Date().toISOString().split('T')[0];
     const reservationTime = params.reservationTime || params.time || null;
@@ -254,6 +255,25 @@ export class PublicVoiceAiController {
         }
       });
 
+      // Send WhatsApp confirmation simulation
+      const tenant = await this.prisma.tenants.findUnique({
+        where: { id: tenantId },
+        select: { name: true }
+      });
+      const restaurantName = tenant?.name || 'our restaurant';
+      const messageText = `Hi ${customerName}, your reservation at ${restaurantName} is confirmed! Details: ${partySize} guests on ${reservationDate}${matchedSlotInfo}${matchedTableInfo}. Thank you for booking!`;
+
+      await this.prisma.whatsapp_logs.create({
+        data: {
+          id: `wa_res_${Date.now()}`,
+          tenant_id: tenantId,
+          recipient_number: customerPhone,
+          direction: 'outbound',
+          message_text: messageText,
+          status: 'sent',
+        }
+      });
+
       return {
         result: `Success! Table reserved for ${customerName} for ${partySize} guests on ${reservationDate}${matchedSlotInfo}${matchedTableInfo}.`
       };
@@ -265,7 +285,7 @@ export class PublicVoiceAiController {
   }
 
   // Helper: Create Order
-  private async handleCreateOrder(tenantId: string, params: any) {
+  private async handleCreateOrder(tenantId: string, params: any, callerNumber: string) {
     const items = params.items || [];
     const tableId = params.tableId || null;
 
@@ -377,8 +397,32 @@ export class PublicVoiceAiController {
         }
       });
 
+      // Send WhatsApp confirmation simulation with checkout payment link
+      const tenant = await this.prisma.tenants.findUnique({
+        where: { id: tenantId },
+        select: { name: true }
+      });
+      const restaurantName = tenant?.name || 'Infinity POS Cafe';
+      
+      const frontendUrl = process.env.FRONTEND_URL || process.env.SERVICE_URL_FRONTEND || 'http://localhost:3000';
+      const paymentLink = `${frontendUrl}/checkout/${orderId}`;
+      const itemsListText = orderItemsData.map((it) => `${it.quantity}x ${it.name}`).join(', ');
+      
+      const messageText = `Hi! Your order at ${restaurantName} has been received. Items: ${itemsListText}. Total: $${grandTotal.toFixed(2)}. Please complete your payment here: ${paymentLink} - Thank you!`;
+
+      await this.prisma.whatsapp_logs.create({
+        data: {
+          id: `wa_ord_${Date.now()}`,
+          tenant_id: tenantId,
+          recipient_number: callerNumber,
+          direction: 'outbound',
+          message_text: messageText,
+          status: 'sent',
+        }
+      });
+
       return {
-        result: `Success! Order ${orderNumber} placed for $${grandTotal.toFixed(2)}. The kitchen has received the ticket.`
+        result: `Success! Order ${orderNumber} placed for $${grandTotal.toFixed(2)}. The kitchen has received the ticket. We have sent a payment link to your WhatsApp: ${paymentLink}`
       };
     } catch (err: any) {
       return {
