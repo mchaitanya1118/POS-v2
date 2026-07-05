@@ -45,4 +45,4 @@ COPY --from=builder /app/apps/backend/node_modules/@prisma/client ./apps/backend
 EXPOSE 3001
 
 # Run migrations and start NestJS
-CMD npx --yes prisma@6.19.3 db push --schema=./apps/backend/prisma/schema.prisma --accept-data-loss && node apps/backend/dist/main
+CMD npx --yes prisma@6.19.3 db push --schema=./apps/backend/prisma/schema.prisma --accept-data-loss && node apps/backend/dist/src/main
