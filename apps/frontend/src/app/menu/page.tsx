@@ -537,7 +537,12 @@ export default function MenuPage() {
 
             <button
               type="button"
-              onClick={() => setShowAddModal(true)}
+              onClick={() => {
+                if (categories.length > 0 && !categoryId) {
+                  setCategoryId(categories[0].id);
+                }
+                setShowAddModal(true);
+              }}
               className="px-5 py-3 rounded-2xl bg-indigo-600 text-white hover:bg-indigo-500 font-bold text-xs flex items-center gap-2 shadow-md shadow-indigo-600/20 active-press transition-all w-full sm:w-auto justify-center cursor-pointer"
             >
               <Plus className="w-4 h-4" /> Add Menu Item
@@ -755,6 +760,148 @@ export default function MenuPage() {
         ))}
 
         {/* ADD MENU ITEM MODAL */}
+        {showAddModal && (
+          <div className="fixed inset-0 z-50 bg-[#090d16]/75 backdrop-blur-md flex items-center justify-center px-4 py-6 overflow-y-auto select-none animate-fade-in">
+            <div className="glass-panel w-full max-w-2xl rounded-[32px] overflow-hidden flex flex-col relative animate-scale-in max-h-[90vh] shadow-2xl border border-slate-100 dark:border-slate-800/80">
+              
+              {/* Header */}
+              <div className="p-6 border-b border-slate-150 dark:border-slate-800 flex justify-between items-center bg-white/20 dark:bg-[#0b1120]/45">
+                <div className="flex items-center gap-2">
+                  <Plus className="w-5 h-5 text-indigo-500" />
+                  <div>
+                    <h3 className="font-extrabold text-base text-slate-800 dark:text-white leading-tight">Add New Menu Item</h3>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mt-0.5">
+                      Create a new dish in your POS catalog
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Form Content */}
+              <form onSubmit={handleAddMenuItem} className="flex-grow flex flex-col min-h-0">
+                <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/50 dark:bg-[#060913]/30">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">Item Name</label>
+                      <input
+                        type="text"
+                        required
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="e.g. Garlic Butter Shrimp"
+                        className="w-full bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">Category</label>
+                      <select
+                        value={categoryId}
+                        onChange={(e) => setCategoryId(e.target.value)}
+                        className="w-full bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      >
+                        {categories.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">Description</label>
+                      <input
+                        type="text"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="e.g. Sautéed in fresh garlic and herbs"
+                        className="w-full bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">Price ({currencySymbol})</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        required
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">Image URL</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        value={imageUrl}
+                        onChange={(e) => setImageUrl(e.target.value)}
+                        className="w-full bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        placeholder="https://images.unsplash.com/..."
+                      />
+                      <div className="relative shrink-0">
+                        <input 
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          disabled={isUploading}
+                        />
+                        <button 
+                          type="button"
+                          disabled={isUploading}
+                          className="flex items-center justify-center h-full px-4 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-600 dark:text-slate-350 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                        >
+                          {isUploading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2">
+                    <input
+                      type="checkbox"
+                      id="addIsAvailable"
+                      checked={isAvailable}
+                      onChange={(e) => setIsAvailable(e.target.checked)}
+                      className="rounded border-slate-350 bg-slate-800 text-indigo-500 focus:ring-indigo-500 w-4 h-4"
+                    />
+                    <label htmlFor="addIsAvailable" className="text-xs font-bold text-slate-700 dark:text-slate-350">
+                      Immediately Available in POS Catalog
+                    </label>
+                  </div>
+                </div>
+
+                {/* Footer Buttons */}
+                <div className="p-6 border-t border-slate-150 dark:border-slate-800 flex justify-end gap-2 bg-white/10 dark:bg-[#0b1120]/20">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddModal(false)}
+                    className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-200 dark:bg-slate-850 hover:bg-slate-300 dark:hover:bg-slate-800 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/10 active-press transition-colors"
+                  >
+                    Add Menu Item
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* AI MENU GENERATOR WIZARD MODAL */}
         {showAIModal && (
