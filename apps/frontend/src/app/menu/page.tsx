@@ -498,7 +498,7 @@ export default function MenuPage() {
                                     <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">Image URL</label>
                                     <div className="flex gap-2">
                                       <input
-                                        type="url"
+                                        type="text"
                                         value={imageUrl || ''}
                                         onChange={(e) => setImageUrl(e.target.value)}
                                         className="w-full bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none"
@@ -905,7 +905,7 @@ export default function MenuPage() {
                     <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">Image URL</label>
                     <div className="flex gap-2">
                       <input
-                        type="url"
+                        type="text"
                         value={imageUrl}
                         onChange={(e) => setImageUrl(e.target.value)}
                         className="w-full bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500"
