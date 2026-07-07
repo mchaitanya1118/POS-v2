@@ -1,8 +1,13 @@
-import { Controller, Get, Post, Delete, Body, Param, UseGuards, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, UseGuards, UnauthorizedException, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { TenantId } from './common/tenant.decorator';
 import { AuthGuard } from './auth.guard';
 import { NotificationService } from './notification.service';
+import { FileInterceptor } from '@nestjs/platform-express';
+// @ts-ignore
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import * as fs from 'fs';
 
 @Controller('api/v1')
 @UseGuards(AuthGuard)
@@ -175,6 +180,36 @@ export class PosController {
     return this.prisma.menu_items.deleteMany({
       where: { id, tenant_id: tenantId },
     });
+  }
+
+  @Post('menu-items/upload')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (req: any, file: any, cb: any) => {
+          const path = './uploads';
+          if (!fs.existsSync(path)) {
+            fs.mkdirSync(path, { recursive: true });
+          }
+          cb(null, path);
+        },
+        filename: (req: any, file: any, cb: any) => {
+          const randomName = Array(32)
+            .fill(null)
+            .map(() => Math.round(Math.random() * 16).toString(16))
+            .join('');
+          cb(null, `${randomName}${extname(file.originalname)}`);
+        },
+      }),
+    }),
+  )
+  async uploadFile(@UploadedFile() file: any) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+    return {
+      imageUrl: `/api/v1/public/orders/uploads/${file.filename}`,
+    };
   }
 
   // ==========================================

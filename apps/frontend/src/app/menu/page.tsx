@@ -206,31 +206,41 @@ export default function MenuPage() {
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !supabase) return;
+    if (!file) return;
 
     try {
       setIsUploading(true);
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `${fileName}`;
+      
+      const formData = new FormData();
+      formData.append('file', file);
 
-      const { error: uploadError } = await supabase.storage
-        .from('menu-images')
-        .upload(filePath, file);
+      const token = localStorage.getItem('pos_token');
+      const tenantId = localStorage.getItem('pos_tenant_id') || 'default-tenant-id';
+      
+      const headers: Record<string, string> = {
+        'X-Tenant-ID': tenantId,
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
 
-      if (uploadError) throw uploadError;
+      const res = await fetch('/api/v1/menu-items/upload', {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
 
-      const { data } = supabase.storage
-        .from('menu-images')
-        .getPublicUrl(filePath);
+      if (!res.ok) {
+        throw new Error(`Upload failed: ${res.statusText}`);
+      }
 
-      setImageUrl(data.publicUrl);
+      const data = await res.json();
+      setImageUrl(data.imageUrl);
     } catch (error) {
       console.error('Error uploading image:', error);
       alert('Failed to upload image. Please try again.');
     } finally {
       setIsUploading(false);
-      // reset file input
       e.target.value = '';
     }
   };

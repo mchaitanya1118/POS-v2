@@ -1,9 +1,20 @@
-import { Controller, Get, Post, Param, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Param, NotFoundException, Res } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
+import * as fs from 'fs';
+import { join } from 'path';
 
 @Controller('api/v1/public/orders')
 export class PublicOrderController {
   constructor(private readonly prisma: PrismaService) {}
+
+  @Get('uploads/:filename')
+  async serveFile(@Param('filename') filename: string, @Res() res: any) {
+    const filePath = join(process.cwd(), 'uploads', filename);
+    if (!fs.existsSync(filePath)) {
+      throw new NotFoundException('File not found');
+    }
+    return res.sendFile(filePath);
+  }
 
   @Get(':orderId')
   async getOrderDetails(@Param('orderId') orderId: string) {
