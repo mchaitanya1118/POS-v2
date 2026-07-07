@@ -24,7 +24,8 @@ import {
   UploadCloud,
   Wand2,
   LayoutGrid,
-  List
+  List,
+  Folder
 } from 'lucide-react';
 import { supabase } from '@/lib/db/supabase-db';
 
@@ -37,6 +38,8 @@ export default function MenuPage() {
   
   // Modals / Form toggles
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -124,6 +127,47 @@ export default function MenuPage() {
       setMenuItems(prev => prev.map(m => m.id === item.id ? updated : m));
     } catch (err) {
       console.error("Failed to toggle item availability", err);
+    }
+  };
+
+  const handleAddCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) return;
+
+    const newCat: MenuCategory = {
+      id: `cat_${Date.now()}`,
+      name: newCategoryName.trim(),
+      slug: newCategoryName.trim().toLowerCase().replace(/\s+/g, '-'),
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      await db.saveCategory(newCat);
+      setCategories(prev => [...prev, newCat].sort((a, b) => a.name.localeCompare(b.name)));
+      setNewCategoryName('');
+      if (!categoryId) {
+        setCategoryId(newCat.id);
+      }
+    } catch (err) {
+      console.error("Failed to add category", err);
+    }
+  };
+
+  const handleDeleteCategory = async (id: string, name: string) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete the category "${name}"? WARNING: All menu items belonging to this category will also be deleted due to cascade constraints.`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      await db.deleteCategory(id);
+      setCategories(prev => prev.filter(c => c.id !== id));
+      setMenuItems(prev => prev.filter(item => item.categoryId !== id));
+      if (categoryId === id) {
+        setCategoryId(categories.find(c => c.id !== id)?.id || '');
+      }
+    } catch (err) {
+      console.error("Failed to delete category", err);
     }
   };
 
@@ -537,6 +581,14 @@ export default function MenuPage() {
 
             <button
               type="button"
+              onClick={() => setShowCategoryModal(true)}
+              className="px-5 py-3 rounded-2xl bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-750 font-bold text-xs flex items-center gap-2 shadow-sm active-press transition-all w-full sm:w-auto justify-center cursor-pointer"
+            >
+              <Folder className="w-4 h-4 text-indigo-500" /> Manage Categories
+            </button>
+
+            <button
+              type="button"
               onClick={() => {
                 if (categories.length > 0 && !categoryId) {
                   setCategoryId(categories[0].id);
@@ -899,6 +951,101 @@ export default function MenuPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* MANAGE CATEGORIES MODAL */}
+        {showCategoryModal && (
+          <div className="fixed inset-0 z-50 bg-[#090d16]/75 backdrop-blur-md flex items-center justify-center px-4 py-6 overflow-y-auto select-none animate-fade-in">
+            <div className="glass-panel w-full max-w-lg rounded-[32px] overflow-hidden flex flex-col relative animate-scale-in max-h-[90vh] shadow-2xl border border-slate-100 dark:border-slate-800/80">
+              
+              {/* Header */}
+              <div className="p-6 border-b border-slate-150 dark:border-slate-800 flex justify-between items-center bg-white/20 dark:bg-[#0b1120]/45">
+                <div className="flex items-center gap-2">
+                  <Folder className="w-5 h-5 text-indigo-500" />
+                  <div>
+                    <h3 className="font-extrabold text-base text-slate-800 dark:text-white leading-tight">Manage Categories</h3>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mt-0.5">
+                      Create and delete menu categories
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryModal(false)}
+                  className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-grow flex flex-col min-h-0 bg-slate-50/50 dark:bg-[#060913]/30 p-6 space-y-6 overflow-y-auto">
+                {/* Add Category Form */}
+                <form onSubmit={handleAddCategory} className="space-y-2">
+                  <label className="text-[10px] uppercase font-bold text-slate-450 tracking-wider block mb-1">Add New Category</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Appetizers, Desserts, Drinks"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      className="flex-1 bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-colors shrink-0 cursor-pointer"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </form>
+
+                {/* Categories List */}
+                <div className="space-y-3">
+                  <h4 className="text-[10px] uppercase font-bold text-slate-450 tracking-wider block">Existing Categories</h4>
+                  
+                  {/* Warning Note */}
+                  <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 rounded-2xl text-[11px] font-semibold leading-normal">
+                    Warning: Deleting a category will also delete all menu items assigned to it (Cascade Delete).
+                  </div>
+
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-100 dark:border-slate-850 rounded-2xl overflow-hidden bg-white dark:bg-[#0b1120]">
+                    {categories.length === 0 ? (
+                      <div className="p-6 text-center text-slate-400 text-xs font-semibold">
+                        No categories found.
+                      </div>
+                    ) : (
+                      categories.map((c) => (
+                        <div key={c.id} className="flex justify-between items-center p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                          <span className="text-xs font-bold text-slate-805 dark:text-slate-200">{c.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCategory(c.id, c.name)}
+                            className="text-red-500 hover:bg-red-500/10 p-1.5 rounded-lg border border-transparent hover:border-red-500/10 transition-colors cursor-pointer"
+                            title="Delete Category"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-6 border-t border-slate-150 dark:border-slate-800 flex justify-end bg-white/10 dark:bg-[#0b1120]/20">
+                <button
+                  type="button"
+                  onClick={() => setShowCategoryModal(false)}
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-250 dark:bg-slate-850 hover:bg-slate-300 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+
             </div>
           </div>
         )}
