@@ -16,6 +16,7 @@ import { HealthController } from './health.controller';
 import { NotificationController } from './notification.controller';
 import { NotificationService } from './notification.service';
 import { PublicOrderController } from './public-order.controller';
+import { WhatsappService } from './whatsapp.service';
 
 @Module({
   imports: [
@@ -40,6 +41,6 @@ import { PublicOrderController } from './public-order.controller';
     NotificationController,
     PublicOrderController,
   ],
-  providers: [AppService, PrismaService, NotificationService],
+  providers: [AppService, PrismaService, NotificationService, WhatsappService],
 })
 export class AppModule {}

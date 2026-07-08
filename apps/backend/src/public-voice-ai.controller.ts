@@ -1,9 +1,13 @@
 import { Controller, Post, Body, Param, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
+import { WhatsappService } from './whatsapp.service';
 
 @Controller('api/v1/public/voice-ai/:tenantId')
 export class PublicVoiceAiController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private whatsappService: WhatsappService
+  ) {}
 
   @Post('vapi')
   async handleVapiWebhook(
@@ -255,13 +259,15 @@ export class PublicVoiceAiController {
         }
       });
 
-      // Send WhatsApp confirmation simulation
+      // Send WhatsApp confirmation
       const tenant = await this.prisma.tenants.findUnique({
         where: { id: tenantId },
         select: { name: true }
       });
       const restaurantName = tenant?.name || 'our restaurant';
       const messageText = `Hi ${customerName}, your reservation at ${restaurantName} is confirmed! Details: ${partySize} guests on ${reservationDate}${matchedSlotInfo}${matchedTableInfo}. Thank you for booking!`;
+
+      const dispatch = await this.whatsappService.sendMessage(customerPhone, messageText);
 
       await this.prisma.whatsapp_logs.create({
         data: {
@@ -270,7 +276,7 @@ export class PublicVoiceAiController {
           recipient_number: customerPhone,
           direction: 'outbound',
           message_text: messageText,
-          status: 'sent',
+          status: dispatch.status,
         }
       });
 
@@ -397,7 +403,7 @@ export class PublicVoiceAiController {
         }
       });
 
-      // Send WhatsApp confirmation simulation with checkout payment link
+      // Send WhatsApp confirmation with checkout payment link
       const tenant = await this.prisma.tenants.findUnique({
         where: { id: tenantId },
         select: { name: true }
@@ -410,6 +416,8 @@ export class PublicVoiceAiController {
       
       const messageText = `Hi! Your order at ${restaurantName} has been received. Items: ${itemsListText}. Total: $${grandTotal.toFixed(2)}. Please complete your payment here: ${paymentLink} - Thank you!`;
 
+      const dispatch = await this.whatsappService.sendMessage(callerNumber, messageText);
+
       await this.prisma.whatsapp_logs.create({
         data: {
           id: `wa_ord_${Date.now()}`,
@@ -417,7 +425,7 @@ export class PublicVoiceAiController {
           recipient_number: callerNumber,
           direction: 'outbound',
           message_text: messageText,
-          status: 'sent',
+          status: dispatch.status,
         }
       });
 

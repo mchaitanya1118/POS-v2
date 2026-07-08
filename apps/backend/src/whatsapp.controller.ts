@@ -3,12 +3,16 @@ import { PrismaService } from './prisma.service';
 import { TenantId } from './common/tenant.decorator';
 import { AuthGuard } from './auth.guard';
 import { FeatureFlagGuard, RequireFeature } from './common/features.guard';
+import { WhatsappService } from './whatsapp.service';
 
 @Controller('api/v1/whatsapp')
 @UseGuards(AuthGuard, FeatureFlagGuard)
 @RequireFeature('whatsapp')
 export class WhatsappController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private whatsappService: WhatsappService
+  ) {}
 
   // ==========================================
   // MESSAGE LOGS
@@ -35,7 +39,8 @@ export class WhatsappController {
     const text = body.messageBody || body.messageText;
     const id = body.id || `log_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
-    console.log(`Sending WhatsApp message to ${recipient}: ${text}`);
+    // Perform actual sending via WhatsappService
+    const dispatch = await this.whatsappService.sendMessage(recipient, text);
 
     const log = await this.prisma.whatsapp_logs.create({
       data: {
@@ -44,7 +49,7 @@ export class WhatsappController {
         recipient_number: recipient,
         direction: 'outbound',
         message_text: text,
-        status: 'sent',
+        status: dispatch.status,
       },
     });
 
@@ -55,6 +60,7 @@ export class WhatsappController {
       message_body: log.message_text,
       status: log.status,
       created_at: log.created_at,
+      error: dispatch.error,
     };
   }
 
