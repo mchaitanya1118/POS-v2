@@ -15,28 +15,47 @@ export class WhatsappController {
   // ==========================================
   @Get('logs')
   async getLogs(@TenantId() tenantId: string) {
-    return this.prisma.whatsapp_logs.findMany({
+    const logs = await this.prisma.whatsapp_logs.findMany({
       where: { tenant_id: tenantId },
       orderBy: { created_at: 'desc' },
     });
+    return logs.map(log => ({
+      id: log.id,
+      recipient_phone: log.recipient_number,
+      direction: log.direction,
+      message_body: log.message_text,
+      status: log.status,
+      created_at: log.created_at,
+    }));
   }
 
   @Post('send')
   async sendMessage(@TenantId() tenantId: string, @Body() body: any) {
-    // 1. Simulate sending message through WhatsApp Business API
-    console.log(`Sending WhatsApp message to ${body.recipientNumber}: ${body.messageText}`);
+    const recipient = body.recipientPhone || body.recipientNumber;
+    const text = body.messageBody || body.messageText;
+    const id = body.id || `log_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
-    // 2. Save log record
-    return this.prisma.whatsapp_logs.create({
+    console.log(`Sending WhatsApp message to ${recipient}: ${text}`);
+
+    const log = await this.prisma.whatsapp_logs.create({
       data: {
-        id: body.id,
+        id,
         tenant_id: tenantId,
-        recipient_number: body.recipientNumber,
+        recipient_number: recipient,
         direction: 'outbound',
-        message_text: body.messageText,
+        message_text: text,
         status: 'sent',
       },
     });
+
+    return {
+      id: log.id,
+      recipient_phone: log.recipient_number,
+      direction: log.direction,
+      message_body: log.message_text,
+      status: log.status,
+      created_at: log.created_at,
+    };
   }
 
   // ==========================================
@@ -52,8 +71,9 @@ export class WhatsappController {
 
   @Post('templates')
   async saveTemplate(@TenantId() tenantId: string, @Body() body: any) {
+    const id = body.id || `tpl_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     return this.prisma.whatsapp_templates.upsert({
-      where: { id: body.id },
+      where: { id },
       update: {
         name: body.name,
         category: body.category,
@@ -63,7 +83,7 @@ export class WhatsappController {
         updated_at: new Date(),
       },
       create: {
-        id: body.id,
+        id,
         tenant_id: tenantId,
         name: body.name,
         category: body.category || 'utility',
